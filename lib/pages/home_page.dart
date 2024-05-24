@@ -6,7 +6,7 @@ import 'package:table_calendar/table_calendar.dart';
 import '../service/database_helper.dart';
 
 class HomePage extends ConsumerStatefulWidget {
-  HomePage({super.key});
+  const HomePage({super.key});
 
   @override
   ConsumerState<HomePage> createState() => _HomePageState();
@@ -28,6 +28,7 @@ class _HomePageState extends ConsumerState<HomePage> {
   void _refreshEvents() {
     setState(() {
       events = DatabaseHelper.instance.readEventsByDate(selectedDay);
+      // events = DatabaseHelper.instance.readAllEvents();
     });
   }
 
@@ -59,6 +60,8 @@ class _HomePageState extends ConsumerState<HomePage> {
             firstDay: DateTime.utc(2023, 3, 1),
             lastDay: DateTime.utc(2030, 3, 1),
             calendarFormat: CalendarFormat.month,
+            startingDayOfWeek: StartingDayOfWeek.monday,
+            calendarStyle: const CalendarStyle(outsideDaysVisible: false),
             selectedDayPredicate: (day) {
               return isSameDay(selectedDay, day);
             },
@@ -77,16 +80,98 @@ class _HomePageState extends ConsumerState<HomePage> {
                   final events = snapshot.data ?? [];
 
                   if (events.isEmpty) {
-                    return const Center(child: Text('No events for this day.'));
+                    return const Center(
+                        child: Text('ဒီနေ့အတွက် အချက်အလက်များ မရှိပါ၊'));
                   }
 
                   return ListView.builder(
                     itemCount: events.length,
                     itemBuilder: (context, index) {
                       final event = events[index];
-                      return ListTile(
-                        title: Text(event.name),
-                        subtitle: Text('Amount: ${event.amount}'),
+                      return Padding(
+                        padding: const EdgeInsets.all(8.0),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(8.0),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(event.name),
+                                    Text(
+                                      'ငွေပမာဏ: ${event.amount} ks',
+                                      style:
+                                          const TextStyle(color: Colors.green),
+                                    )
+                                  ],
+                                ),
+                                Row(
+                                  children: [
+                                    IconButton(
+                                        onPressed: () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (context) {
+                                              return AlertDialog(
+                                                title: Text(
+                                                    "${event.name} ကိုဖျက်မည်သေချာလား?"),
+                                                actions: [
+                                                  TextButton(
+                                                      onPressed: () {
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      },
+                                                      child:
+                                                          const Text('Cancel')),
+                                                  TextButton(
+                                                      onPressed: () async {
+                                                        await DatabaseHelper
+                                                            .instance
+                                                            .deleteEvent(
+                                                                event.id!);
+                                                        _refreshEvents();
+                                                        Navigator.of(context)
+                                                            .pop();
+                                                      },
+                                                      child:
+                                                          const Text('Delete')),
+                                                ],
+                                              );
+                                            },
+                                          );
+                                        },
+                                        icon: const Icon(
+                                          Icons.delete,
+                                          color: Colors.red,
+                                        )),
+                                    Checkbox(
+                                        value: event.status,
+                                        onChanged: (bool? newValue) async {
+                                          if (newValue != event.status) {
+                                            final updatedEvent =
+                                                event.copy(status: newValue);
+                                            await DatabaseHelper.instance
+                                                .updateEvent(updatedEvent);
+                                            _refreshEvents();
+                                            if (event.status != true) {
+                                              ScaffoldMessenger.of(context)
+                                                  .showSnackBar(
+                                                SnackBar(
+                                                    content: Text(
+                                                        '${event.name} က ဒီနေ့အတွက် ပေးပြီးပါပြီ။')),
+                                              );
+                                            }
+                                          }
+                                        })
+                                  ],
+                                )
+                              ],
+                            ),
+                          ),
+                        ),
                       );
                     },
                   );
@@ -133,7 +218,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
-                    hintText: 'ပမာဏ',
+                    hintText: 'ငွေပမာဏ',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10.0),
                     ),
@@ -145,12 +230,6 @@ class _HomePageState extends ConsumerState<HomePage> {
           ),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop();
-              },
-              child: const Text('Cancel'),
-            ),
-            TextButton(
               onPressed: () async {
                 try {
                   final name = _nameController.text;
@@ -159,7 +238,7 @@ class _HomePageState extends ConsumerState<HomePage> {
                   if (name.isEmpty || amount <= 0) {
                     // Show an error message
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Invalid input')),
+                      const SnackBar(content: Text('Invalid input')),
                     );
                     return;
                   }
@@ -177,15 +256,15 @@ class _HomePageState extends ConsumerState<HomePage> {
                   _amountController.clear();
                   Navigator.of(context).pop();
                 } catch (e) {
-                  print('Error: $e');
+                  // print('Error: $e');
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
+                    const SnackBar(
                         content:
                             Text('An error occurred while saving the event')),
                   );
                 }
               },
-              child: const Text('Save'),
+              child: const Text('သိမ်းမယ်'),
             ),
           ],
         );
